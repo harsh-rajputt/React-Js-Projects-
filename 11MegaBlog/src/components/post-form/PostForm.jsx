@@ -19,8 +19,18 @@ export default function PostForm({ post }) {
     const userData = useSelector((state) => state.auth.userData);
 
     const submit = async (data) => {
+        // ⛔ Stop if user is NOT logged in
+        if (!userData || !userData.$id) {
+            alert("You must be logged in to create or edit a post.");
+            console.log("userData is missing:", userData);
+            return;
+        }
+
         if (post) {
-            const file = data.image[0] ? await appwriteService.uploadFile(data.image[0]) : null;
+            // UPDATE MODE
+            const file = data.image[0]
+                ? await appwriteService.uploadFile(data.image[0])
+                : null;
 
             if (file) {
                 appwriteService.deleteFile(post.featuredImage);
@@ -28,19 +38,26 @@ export default function PostForm({ post }) {
 
             const dbPost = await appwriteService.updatePost(post.$id, {
                 ...data,
-                featuredImage: file ? file.$id : undefined,
+                featuredImage: file ? file.$id : post.featuredImage,
             });
 
             if (dbPost) {
                 navigate(`/post/${dbPost.$id}`);
             }
         } else {
+            // CREATE MODE
             const file = await appwriteService.uploadFile(data.image[0]);
 
             if (file) {
                 const fileId = file.$id;
                 data.featuredImage = fileId;
-                const dbPost = await appwriteService.createPost({ ...data, userId: userData.$id });
+
+                console.log("Creating post with user:", userData);
+
+                const dbPost = await appwriteService.createPost({
+                    ...data,
+                    userId: userData.$id,
+                });
 
                 if (dbPost) {
                     navigate(`/post/${dbPost.$id}`);
@@ -56,7 +73,6 @@ export default function PostForm({ post }) {
                 .toLowerCase()
                 .replace(/[^a-zA-Z\d\s]+/g, "-")
                 .replace(/\s/g, "-");
-
         return "";
     }, []);
 
@@ -79,17 +95,29 @@ export default function PostForm({ post }) {
                     className="mb-4"
                     {...register("title", { required: true })}
                 />
+
                 <Input
                     label="Slug :"
                     placeholder="Slug"
                     className="mb-4"
                     {...register("slug", { required: true })}
                     onInput={(e) => {
-                        setValue("slug", slugTransform(e.currentTarget.value), { shouldValidate: true });
+                        setValue(
+                            "slug",
+                            slugTransform(e.currentTarget.value),
+                            { shouldValidate: true }
+                        );
                     }}
                 />
-                <RTE label="Content :" name="content" control={control} defaultValue={getValues("content")} />
+
+                <RTE
+                    label="Content :"
+                    name="content"
+                    control={control}
+                    defaultValue={getValues("content")}
+                />
             </div>
+
             <div className="w-1/3 px-2">
                 <Input
                     label="Featured Image :"
@@ -98,6 +126,7 @@ export default function PostForm({ post }) {
                     accept="image/png, image/jpg, image/jpeg, image/gif"
                     {...register("image", { required: !post })}
                 />
+
                 {post && (
                     <div className="w-full mb-4">
                         <img
@@ -107,13 +136,19 @@ export default function PostForm({ post }) {
                         />
                     </div>
                 )}
+
                 <Select
                     options={["active", "inactive"]}
                     label="Status"
                     className="mb-4"
                     {...register("status", { required: true })}
                 />
-                <Button type="submit" bgColor={post ? "bg-green-500" : undefined} className="w-full">
+
+                <Button
+                    type="submit"
+                    bgColor={post ? "bg-green-500" : undefined}
+                    className="w-full"
+                >
                     {post ? "Update" : "Submit"}
                 </Button>
             </div>
